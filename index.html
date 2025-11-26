@@ -313,7 +313,7 @@
         <div class="cards-grid">
           <article class="card" tabindex="0">
             <h3>// TERMINAL INTERFACE</h3>
-            <p>Full-featured command-line interface with 10+ commands. Execute system operations, explore files, and control the environment.</p>
+            <p>Full-featured command-line interface with 12 commands. Execute system operations, explore files, and control the environment.</p>
           </article>
           <article class="card" tabindex="0">
             <h3>// SNAKE GAME</h3>
@@ -400,7 +400,7 @@
             <li>Matrix rain background effect (toggleable)</li>
             <li>Dual theme support (Dark Neon / Accessible Dark)</li>
             <li>Command palette-style search (Ctrl/Cmd + K)</li>
-            <li>Full CLI terminal with 10+ commands</li>
+            <li>Full CLI terminal with 12 commands</li>
             <li>Classic Snake game with high score tracking</li>
           </ul>
           
@@ -716,7 +716,7 @@
           ];
         },
         about: () => ['Terminal OS v1.0', 'A retro-inspired terminal website', 'Built with vanilla HTML, CSS, and JavaScript'],
-        clear: () => { terminalOutput.innerHTML = ''; return null; },
+        clear: () => { while (terminalOutput.firstChild) { terminalOutput.removeChild(terminalOutput.firstChild); } return null; },
         date: () => new Date().toString(),
         echo: (args) => args.join(' ') || '',
         theme: () => { toggleTheme(); return 'Theme toggled'; },
@@ -749,7 +749,7 @@
       }
       
       function addTerminalOutput(output, type = '') {
-        if (output === null || output === '') return;
+        if (output === null || output === undefined) return;
         if (Array.isArray(output)) {
           output.forEach(line => addTerminalLine(line, type));
         } else {
