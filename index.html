@@ -699,33 +699,35 @@
       
       const commands = {
         help: () => {
-          return 'Available commands:\\n' +
-            '  help      - Show this help message\\n' +
-            '  about     - Display site information\\n' +
-            '  clear     - Clear terminal output\\n' +
-            '  date      - Show current date/time\\n' +
-            '  echo      - Echo text back\\n' +
-            '  theme     - Toggle color theme\\n' +
-            '  matrix    - Toggle matrix rain effect\\n' +
-            '  snake     - Launch Snake game\\n' +
-            '  ls        - List available files\\n' +
-            '  cat       - Display file contents\\n' +
-            '  whoami    - Show current user\\n' +
-            '  uptime    - Show system uptime';
+          return [
+            'Available commands:',
+            '  help      - Show this help message',
+            '  about     - Display site information',
+            '  clear     - Clear terminal output',
+            '  date      - Show current date/time',
+            '  echo      - Echo text back',
+            '  theme     - Toggle color theme',
+            '  matrix    - Toggle matrix rain effect',
+            '  snake     - Launch Snake game',
+            '  ls        - List available files',
+            '  cat       - Display file contents',
+            '  whoami    - Show current user',
+            '  uptime    - Show system uptime'
+          ];
         },
-        about: () => 'Terminal OS v1.0\\nA retro-inspired terminal website\\nBuilt with vanilla HTML, CSS, and JavaScript',
-        clear: () => { terminalOutput.innerHTML = ''; return ''; },
+        about: () => ['Terminal OS v1.0', 'A retro-inspired terminal website', 'Built with vanilla HTML, CSS, and JavaScript'],
+        clear: () => { terminalOutput.innerHTML = ''; return null; },
         date: () => new Date().toString(),
         echo: (args) => args.join(' ') || '',
         theme: () => { toggleTheme(); return 'Theme toggled'; },
         matrix: () => { toggleMatrix(); return 'Matrix effect toggled'; },
         snake: () => { switchSection('game'); return 'Launching Snake game...'; },
-        ls: () => 'Files:\\n  ' + Object.keys(files).join('\\n  '),
+        ls: () => ['Files:'].concat(Object.keys(files).map(f => '  ' + f)),
         dir: () => commands.ls(),
         cat: (args) => {
           const filename = args[0];
           if (!filename) return 'Usage: cat <filename>';
-          if (files[filename]) return files[filename];
+          if (files[filename]) return files[filename].split('\n');
           return 'Error: File not found: ' + filename;
         },
         whoami: () => 'root',
@@ -741,9 +743,18 @@
       function addTerminalLine(text, type = '') {
         const line = document.createElement('div');
         line.className = 'terminal-line' + (type ? ' ' + type : '');
-        line.textContent = text.replace(/\\n/g, '\n');
+        line.textContent = text;
         terminalOutput.appendChild(line);
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      }
+      
+      function addTerminalOutput(output, type = '') {
+        if (output === null || output === '') return;
+        if (Array.isArray(output)) {
+          output.forEach(line => addTerminalLine(line, type));
+        } else {
+          addTerminalLine(output, type);
+        }
       }
       
       function executeCommand(input) {
@@ -755,7 +766,7 @@
         if (!cmd) return;
         if (commands[cmd]) {
           const result = commands[cmd](args);
-          if (result) addTerminalLine(result);
+          addTerminalOutput(result);
         } else {
           addTerminalLine('Command not found: ' + cmd + '. Type "help" for available commands.', 'error');
         }
