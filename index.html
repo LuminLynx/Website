@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Retro Terminal-Style Website with CLI interface, Snake game, and hacker aesthetic">
+  <title>Terminal OS v1.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0a0a0a;
+      --text-color: #00FF00;
+      --accent-color: #FF00FF;
+      --secondary-color: #00FFFF;
+      --border-color: #00FF00;
+      --card-bg: #111111;
+      --dim-text: #007700;
+    }
+    [data-theme="accessible"] {
+      --bg-color: #121212;
+      --text-color: #E0E0E0;
+      --accent-color: #76FF03;
+      --secondary-color: #FF4081;
+      --border-color: #76FF03;
+      --card-bg: #1E1E1E;
+      --dim-text: #888888;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    }
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    a { color: var(--secondary-color); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    /* Focus states */
+    :focus-visible { outline: 3px solid var(--accent-color); outline-offset: 4px; }
+    :focus:not(:focus-visible) { outline: none; }
+    /* Skip link */
+    .skip-link {
+      position: absolute; top: -100px; left: 0;
+      background: var(--accent-color); color: var(--bg-color);
+      padding: 0.5rem 1rem; z-index: 10000; font-weight: 600;
+    }
+    .skip-link:focus { top: 0; }
+    /* CRT Scanlines */
+    .scanlines::before {
+      content: '';
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; z-index: 9999;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px);
+    }
+    .scanlines::after {
+      content: '';
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; z-index: 9998;
+      box-shadow: inset 0 0 100px rgba(0, 255, 0, 0.1);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .scanlines::before, .scanlines::after { display: none; }
+    }
+    /* Boot Screen */
+    #boot-screen {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg-color); z-index: 10000;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      padding: 2rem; font-family: 'Fira Code', monospace;
+    }
+    #boot-screen.hidden { display: none; }
+    .boot-content { max-width: 600px; width: 100%; }
+    .boot-line { margin: 0.3rem 0; opacity: 0; animation: fadeIn 0.3s forwards; }
+    .boot-line.ok { color: var(--text-color); }
+    .boot-line.ok::after { content: ' [OK]'; color: var(--accent-color); }
+    .boot-progress { width: 100%; height: 20px; background: var(--card-bg); border: 1px solid var(--border-color); margin: 1rem 0; }
+    .boot-progress-bar { height: 100%; width: 0; background: var(--text-color); transition: width 0.1s; }
+    .skip-boot { color: var(--dim-text); margin-top: 1rem; }
+    @keyframes fadeIn { to { opacity: 1; } }
+    /* Main App */
+    #app { display: none; }
+    #app.visible { display: block; }
+    /* Status Bar */
+    .status-bar {
+      background: var(--card-bg); border-bottom: 1px solid var(--border-color);
+      padding: 0.5rem 1rem; display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 0.5rem; font-size: 0.85rem;
+    }
+    .status-item { display: flex; align-items: center; gap: 0.3rem; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-color); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    /* Navigation */
+    nav {
+      background: var(--card-bg); border-bottom: 1px solid var(--border-color);
+      padding: 0.5rem 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+    }
+    .nav-links { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .nav-link {
+      background: transparent; border: 1px solid var(--border-color); color: var(--text-color);
+      padding: 0.5rem 1rem; cursor: pointer; font-family: inherit; font-size: 0.9rem;
+      transition: background 0.2s, color 0.2s;
+    }
+    .nav-link:hover, .nav-link.active { background: var(--text-color); color: var(--bg-color); }
+    .nav-controls { display: flex; gap: 0.5rem; align-items: center; }
+    .toggle-btn {
+      background: transparent; border: 1px solid var(--border-color); color: var(--text-color);
+      padding: 0.4rem 0.8rem; cursor: pointer; font-family: inherit; font-size: 0.8rem;
+    }
+    .toggle-btn:hover { background: var(--card-bg); }
+    /* Search Box */
+    .search-container { position: relative; flex: 1; max-width: 400px; min-width: 200px; }
+    .search-input {
+      width: 100%; background: var(--bg-color); border: 1px solid var(--border-color);
+      color: var(--text-color); padding: 0.5rem 1rem; font-family: 'Fira Code', monospace;
+      font-size: 0.9rem;
+    }
+    .search-input::placeholder { color: var(--dim-text); }
+    .search-results {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--card-bg); border: 1px solid var(--border-color); border-top: none;
+      max-height: 200px; overflow-y: auto; display: none; z-index: 100;
+    }
+    .search-results.visible { display: block; }
+    .search-result { padding: 0.5rem 1rem; cursor: pointer; }
+    .search-result:hover, .search-result:focus { background: var(--text-color); color: var(--bg-color); }
+    /* Main Content */
+    main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+    .section { display: none; }
+    .section.active { display: block; }
+    /* ASCII Art */
+    .ascii-art {
+      font-family: 'Fira Code', monospace; font-size: clamp(0.4rem, 1.5vw, 0.8rem);
+      line-height: 1.2; white-space: pre; overflow-x: auto; text-align: center;
+      color: var(--text-color); margin: 1rem 0;
+    }
+    /* Typing Animation */
+    .typing-container { margin: 2rem 0; min-height: 120px; }
+    .typing-text { display: inline; }
+    .cursor {
+      display: inline-block; width: 0.6em; height: 1.2em;
+      background: var(--text-color); margin-left: 2px;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    /* Cards */
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 2rem 0; }
+    .card {
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      padding: 1.5rem; position: relative; overflow: hidden;
+      transition: box-shadow 0.3s, transform 0.2s;
+    }
+    .card:hover { box-shadow: 0 0 20px var(--accent-color); transform: translateY(-2px); }
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: -100%; width: 100%; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+      animation: scanCard 3s linear infinite;
+    }
+    @keyframes scanCard { 0% { left: -100%; } 100% { left: 100%; } }
+    .card h3 { color: var(--accent-color); margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
+    /* Terminal */
+    .terminal {
+      background: var(--bg-color); border: 1px solid var(--border-color);
+      height: 400px; display: flex; flex-direction: column; font-family: 'Fira Code', monospace;
+    }
+    .terminal-header {
+      background: var(--card-bg); padding: 0.5rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dot.red { background: #ff5f56; }
+    .terminal-dot.yellow { background: #ffbd2e; }
+    .terminal-dot.green { background: #27ca40; }
+    .terminal-title { margin-left: 1rem; color: var(--dim-text); }
+    .terminal-output { flex: 1; overflow-y: auto; padding: 1rem; font-size: 0.9rem; }
+    .terminal-line { margin: 0.2rem 0; word-wrap: break-word; }
+    .terminal-line.error { color: #ff5f56; }
+    .terminal-line.success { color: var(--accent-color); }
+    .terminal-input-container { display: flex; padding: 0.5rem 1rem; border-top: 1px solid var(--border-color); }
+    .terminal-prompt { color: var(--accent-color); white-space: nowrap; }
+    .terminal-input {
+      flex: 1; background: transparent; border: none; color: var(--text-color);
+      font-family: inherit; font-size: 0.9rem; outline: none; margin-left: 0.5rem;
+    }
+    /* Snake Game */
+    .game-container { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+    #snake-canvas { border: 2px solid var(--border-color); background: var(--bg-color); max-width: 100%; }
+    .game-controls { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .game-btn {
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      color: var(--text-color); padding: 0.5rem 1.5rem; cursor: pointer;
+      font-family: inherit; font-size: 1rem;
+    }
+    .game-btn:hover { background: var(--text-color); color: var(--bg-color); }
+    .game-info { display: flex; gap: 2rem; font-size: 1.1rem; }
+    /* Matrix Rain */
+    #matrix-canvas {
+      position: fixed; top: 0; left: 0; z-index: -1; pointer-events: none;
+      opacity: 0; transition: opacity 0.5s;
+    }
+    #matrix-canvas.visible { opacity: 0.3; }
+    /* About Section */
+    .about-content { max-width: 800px; margin: 0 auto; }
+    .about-content h2 { color: var(--accent-color); margin: 1.5rem 0 0.5rem; }
+    .about-content p { margin: 0.5rem 0; }
+    .about-content ul { margin: 0.5rem 0 0.5rem 1.5rem; }
+    /* Mobile */
+    @media (max-width: 768px) {
+      .ascii-art { font-size: 0.35rem; }
+      .status-bar { font-size: 0.75rem; }
+      nav { flex-direction: column; }
+      .search-container { max-width: 100%; order: -1; }
+      .terminal { height: 300px; }
+      #snake-canvas { width: 300px !important; height: 300px !important; }
+    }
+    /* Screen reader only */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+    /* Live region for announcements */
+    #announcer { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+  </style>
+</head>
+<body class="scanlines">
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <div id="announcer" aria-live="polite" aria-atomic="true"></div>
+  
+  <!-- Boot Screen -->
+  <div id="boot-screen" role="dialog" aria-label="System boot sequence">
+    <div class="boot-content">
+      <div class="boot-line ok" style="animation-delay: 0.2s">TERMINAL OS v1.0 BIOS</div>
+      <div class="boot-line ok" style="animation-delay: 0.5s">CPU: Checking processors... 4 cores detected</div>
+      <div class="boot-line ok" style="animation-delay: 0.8s">MEMORY: Testing RAM... 16384 MB</div>
+      <div class="boot-line ok" style="animation-delay: 1.1s">GRAPHICS: Initializing display adapter</div>
+      <div class="boot-line ok" style="animation-delay: 1.4s">STORAGE: Scanning drives... 512 GB SSD</div>
+      <div class="boot-line ok" style="animation-delay: 1.7s">NETWORK: Establishing connection</div>
+      <div class="boot-line ok" style="animation-delay: 2.0s">SYSTEM: Loading kernel modules</div>
+      <div class="boot-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        <div class="boot-progress-bar" id="boot-progress-bar"></div>
+      </div>
+      <div class="skip-boot">Press any key to skip...</div>
+    </div>
+  </div>
+
+  <!-- Matrix Rain Canvas -->
+  <canvas id="matrix-canvas" aria-hidden="true"></canvas>
+
+  <!-- Main App -->
+  <div id="app">
+    <!-- Status Bar -->
+    <div class="status-bar" role="banner">
+      <div class="status-item"><span class="status-dot"></span><span>SYSTEM ONLINE</span></div>
+      <div class="status-item" id="uptime">UPTIME: 00:00:00</div>
+      <div class="status-item" id="memory">MEM: 0%</div>
+      <div class="status-item" id="cpu">CPU: 0%</div>
+      <div class="status-item" id="datetime"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav role="navigation" aria-label="Main navigation">
+      <div class="nav-links">
+        <button class="nav-link active" data-section="home" aria-current="page">[ HOME ]</button>
+        <button class="nav-link" data-section="terminal">[ TERMINAL ]</button>
+        <button class="nav-link" data-section="game">[ GAME ]</button>
+        <button class="nav-link" data-section="about">[ ABOUT ]</button>
+      </div>
+      <div class="search-container">
+        <label for="search-input" class="sr-only">Search site content (Ctrl+K)</label>
+        <input type="text" id="search-input" class="search-input" placeholder="> search_database --query=" autocomplete="off">
+        <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+      </div>
+      <div class="nav-controls">
+        <button class="toggle-btn" id="theme-toggle" aria-label="Toggle color theme">THEME</button>
+        <button class="toggle-btn" id="scanline-toggle" aria-label="Toggle CRT scanlines">CRT</button>
+        <button class="toggle-btn" id="matrix-toggle" aria-label="Toggle matrix rain effect">MATRIX</button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="main-content">
+      <!-- HOME Section -->
+      <section id="home" class="section active" aria-labelledby="home-title">
+        <pre class="ascii-art" role="img" aria-label="Terminal OS Logo">
+████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗ █████╗ ██╗          ██████╗ ███████╗
+╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██╔══██╗██║         ██╔═══██╗██╔════╝
+   ██║   █████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║███████║██║         ██║   ██║███████╗
+   ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██╔══██║██║         ██║   ██║╚════██║
+   ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║██║  ██║███████╗    ╚██████╔╝███████║
+   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝     ╚═════╝ ╚══════╝
+        </pre>
+        <h1 id="home-title" class="sr-only">Terminal OS - Home</h1>
+        
+        <div class="typing-container" aria-live="polite">
+          <span class="typing-text" id="typing-text"></span><span class="cursor" aria-hidden="true"></span>
+        </div>
+
+        <pre class="ascii-art" role="img" aria-label="Features Section Header">
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              S Y S T E M   F E A T U R E S                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+        </pre>
+
+        <div class="cards-grid">
+          <article class="card" tabindex="0">
+            <h3>// TERMINAL INTERFACE</h3>
+            <p>Full-featured command-line interface with 10+ commands. Execute system operations, explore files, and control the environment.</p>
+          </article>
+          <article class="card" tabindex="0">
+            <h3>// SNAKE GAME</h3>
+            <p>Classic retro Snake game with keyboard controls. Compete for high scores and relive the nostalgia of early computing.</p>
+          </article>
+          <article class="card" tabindex="0">
+            <h3>// THEME SYSTEM</h3>
+            <p>Toggle between Dark Neon and Accessible Dark themes. CRT scanlines and Matrix rain effects customizable.</p>
+          </article>
+          <article class="card" tabindex="0">
+            <h3>// ACCESSIBILITY</h3>
+            <p>WCAG 2.1 AA compliant with keyboard navigation, screen reader support, and reduced motion preferences.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- TERMINAL Section -->
+      <section id="terminal-section" class="section" aria-labelledby="terminal-title">
+        <pre class="ascii-art" role="img" aria-label="Terminal Section Header">
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              T E R M I N A L                                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+        </pre>
+        <h2 id="terminal-title" class="sr-only">Terminal Interface</h2>
+        
+        <div class="terminal" role="application" aria-label="Command line terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+            <span class="terminal-title">bash - Terminal</span>
+          </div>
+          <div class="terminal-output" id="terminal-output" aria-live="polite" tabindex="0"></div>
+          <div class="terminal-input-container">
+            <span class="terminal-prompt">root@terminal:~$</span>
+            <label for="terminal-input" class="sr-only">Enter command</label>
+            <input type="text" id="terminal-input" class="terminal-input" autocomplete="off" spellcheck="false" aria-label="Terminal command input">
+          </div>
+        </div>
+      </section>
+
+      <!-- GAME Section -->
+      <section id="game" class="section" aria-labelledby="game-title">
+        <pre class="ascii-art" role="img" aria-label="Game Section Header">
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              S N A K E   G A M E                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+        </pre>
+        <h2 id="game-title" class="sr-only">Snake Game</h2>
+        
+        <div class="game-container">
+          <div class="game-info">
+            <span>SCORE: <span id="score">0</span></span>
+            <span>HIGH: <span id="high-score">0</span></span>
+          </div>
+          <canvas id="snake-canvas" width="400" height="400" tabindex="0" aria-label="Snake game canvas. Use arrow keys to control, Space to start or pause."></canvas>
+          <div class="game-controls">
+            <button class="game-btn" id="start-game">[ START (SPACE) ]</button>
+            <button class="game-btn" id="pause-game">[ PAUSE ]</button>
+          </div>
+          <p>Controls: Arrow Keys to move, Space to start/pause</p>
+        </div>
+      </section>
+
+      <!-- ABOUT Section -->
+      <section id="about" class="section" aria-labelledby="about-title">
+        <pre class="ascii-art" role="img" aria-label="About Section Header">
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              A B O U T                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+        </pre>
+        <h2 id="about-title" class="sr-only">About This Project</h2>
+        
+        <div class="about-content">
+          <h2>// PROJECT OVERVIEW</h2>
+          <p>Terminal OS is a retro-inspired, terminal/hacker aesthetic website built with modern web standards. It combines nostalgic computing elements with accessibility compliance and interactive features.</p>
+          
+          <h2>// FEATURES</h2>
+          <ul>
+            <li>BIOS-style boot sequence with system checks</li>
+            <li>Typing animation with blinking cursor</li>
+            <li>ASCII art headers and decorations</li>
+            <li>CRT scanline overlay (toggleable)</li>
+            <li>Matrix rain background effect (toggleable)</li>
+            <li>Dual theme support (Dark Neon / Accessible Dark)</li>
+            <li>Command palette-style search (Ctrl/Cmd + K)</li>
+            <li>Full CLI terminal with 10+ commands</li>
+            <li>Classic Snake game with high score tracking</li>
+          </ul>
+          
+          <h2>// TECHNICAL SPECS</h2>
+          <ul>
+            <li>Pure HTML, CSS, and vanilla JavaScript</li>
+            <li>No external libraries or frameworks</li>
+            <li>WCAG 2.1 AA accessibility compliant</li>
+            <li>Respects prefers-reduced-motion</li>
+            <li>Mobile responsive design</li>
+            <li>Keyboard navigable</li>
+          </ul>
+          
+          <h2>// TYPOGRAPHY</h2>
+          <p>Primary: JetBrains Mono (Apache 2.0)</p>
+          <p>Secondary: Fira Code (SIL OFL)</p>
+          
+          <h2>// COLOR THEMES</h2>
+          <p><strong>Dark Neon:</strong> #0a0a0a bg, #00FF00 text, #FF00FF accent</p>
+          <p><strong>Accessible Dark:</strong> #121212 bg, #E0E0E0 text, #76FF03 accent</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+      
+      // ===== UTILITIES =====
+      const $ = (sel) => document.querySelector(sel);
+      const $$ = (sel) => document.querySelectorAll(sel);
+      const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const announce = (msg) => { $('#announcer').textContent = msg; };
+      
+      // ===== BOOT SEQUENCE =====
+      const bootScreen = $('#boot-screen');
+      const app = $('#app');
+      const progressBar = $('#boot-progress-bar');
+      let bootProgress = 0;
+      let bootComplete = false;
+      
+      function skipBoot() {
+        if (bootComplete) return;
+        bootComplete = true;
+        bootScreen.classList.add('hidden');
+        app.classList.add('visible');
+        announce('System loaded. Welcome to Terminal OS.');
+        startTypingAnimation();
+        initStatusBar();
+      }
+      
+      function runBoot() {
+        if (prefersReducedMotion()) { skipBoot(); return; }
+        
+        const bootInterval = setInterval(() => {
+          bootProgress += 2;
+          progressBar.style.width = bootProgress + '%';
+          $('#boot-screen [role="progressbar"]').setAttribute('aria-valuenow', bootProgress);
+          if (bootProgress >= 100) {
+            clearInterval(bootInterval);
+            setTimeout(skipBoot, 300);
+          }
+        }, 40);
+      }
+      
+      document.addEventListener('keydown', (e) => {
+        if (!bootComplete) skipBoot();
+      });
+      bootScreen.addEventListener('click', skipBoot);
+      
+      // ===== TYPING ANIMATION =====
+      const messages = [
+        'Welcome to Terminal OS v1.0...',
+        'Initializing user interface...',
+        'Loading system modules...',
+        'System ready. Type "help" in terminal for commands.'
+      ];
+      let msgIndex = 0, charIndex = 0;
+      const typingText = $('#typing-text');
+      
+      function startTypingAnimation() {
+        if (prefersReducedMotion()) {
+          typingText.textContent = messages.join(' ');
+          return;
+        }
+        typeNextChar();
+      }
+      
+      function typeNextChar() {
+        if (msgIndex >= messages.length) return;
+        if (charIndex < messages[msgIndex].length) {
+          typingText.textContent += messages[msgIndex][charIndex];
+          charIndex++;
+          setTimeout(typeNextChar, 60);
+        } else {
+          msgIndex++;
+          if (msgIndex < messages.length) {
+            typingText.textContent += '\n';
+            charIndex = 0;
+            setTimeout(typeNextChar, 500);
+          }
+        }
+      }
+      
+      // ===== STATUS BAR =====
+      let startTime = Date.now();
+      
+      function initStatusBar() {
+        updateDateTime();
+        setInterval(updateStatusBar, 1000);
+      }
+      
+      function updateStatusBar() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+        const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+        const s = String(elapsed % 60).padStart(2, '0');
+        $('#uptime').textContent = 'UPTIME: ' + h + ':' + m + ':' + s;
+        $('#memory').textContent = 'MEM: ' + (30 + Math.floor(Math.random() * 20)) + '%';
+        $('#cpu').textContent = 'CPU: ' + (5 + Math.floor(Math.random() * 15)) + '%';
+        updateDateTime();
+      }
+      
+      function updateDateTime() {
+        const now = new Date();
+        $('#datetime').textContent = now.toLocaleString();
+      }
+      
+      // ===== NAVIGATION =====
+      const navLinks = $$('.nav-link');
+      const sections = $$('.section');
+      
+      navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          const target = link.dataset.section;
+          switchSection(target);
+        });
+      });
+      
+      function switchSection(target) {
+        sections.forEach(s => s.classList.remove('active'));
+        navLinks.forEach(l => { l.classList.remove('active'); l.removeAttribute('aria-current'); });
+        
+        const sectionMap = { home: 'home', terminal: 'terminal-section', game: 'game', about: 'about' };
+        const sectionId = sectionMap[target] || target;
+        const section = $('#' + sectionId);
+        const link = document.querySelector('[data-section="' + target + '"]');
+        
+        if (section) section.classList.add('active');
+        if (link) { link.classList.add('active'); link.setAttribute('aria-current', 'page'); }
+        announce('Navigated to ' + target + ' section');
+      }
+      
+      // ===== SEARCH =====
+      const searchInput = $('#search-input');
+      const searchResults = $('#search-results');
+      const searchableItems = [
+        { text: 'Home - Overview and features', section: 'home' },
+        { text: 'Terminal - Command line interface', section: 'terminal' },
+        { text: 'Game - Snake game', section: 'game' },
+        { text: 'About - Project information', section: 'about' },
+        { text: 'Theme - Color scheme toggle', action: () => toggleTheme() },
+        { text: 'Matrix - Rain effect toggle', action: () => toggleMatrix() },
+        { text: 'CRT - Scanlines toggle', action: () => toggleScanlines() }
+      ];
+      
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        searchResults.innerHTML = '';
+        if (!query) { searchResults.classList.remove('visible'); return; }
+        
+        const matches = searchableItems.filter(item => item.text.toLowerCase().includes(query));
+        if (matches.length === 0) { searchResults.classList.remove('visible'); return; }
+        
+        matches.forEach((item, i) => {
+          const div = document.createElement('div');
+          div.className = 'search-result';
+          div.textContent = item.text;
+          div.tabIndex = 0;
+          div.setAttribute('role', 'option');
+          div.addEventListener('click', () => selectSearchResult(item));
+          div.addEventListener('keydown', (e) => { if (e.key === 'Enter') selectSearchResult(item); });
+          searchResults.appendChild(div);
+        });
+        searchResults.classList.add('visible');
+      });
+      
+      function selectSearchResult(item) {
+        searchResults.classList.remove('visible');
+        searchInput.value = '';
+        if (item.section) switchSection(item.section);
+        if (item.action) item.action();
+      }
+      
+      searchInput.addEventListener('blur', () => {
+        setTimeout(() => searchResults.classList.remove('visible'), 200);
+      });
+      
+      // Ctrl/Cmd + K shortcut
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          searchInput.focus();
+        }
+      });
+      
+      // ===== THEME TOGGLE =====
+      let currentTheme = 'neon';
+      
+      function toggleTheme() {
+        currentTheme = currentTheme === 'neon' ? 'accessible' : 'neon';
+        document.documentElement.setAttribute('data-theme', currentTheme === 'accessible' ? 'accessible' : '');
+        announce('Theme changed to ' + (currentTheme === 'accessible' ? 'Accessible Dark' : 'Dark Neon'));
+      }
+      $('#theme-toggle').addEventListener('click', toggleTheme);
+      
+      // ===== SCANLINES TOGGLE =====
+      let scanlinesEnabled = true;
+      
+      function toggleScanlines() {
+        scanlinesEnabled = !scanlinesEnabled;
+        document.body.classList.toggle('scanlines', scanlinesEnabled);
+        announce('CRT scanlines ' + (scanlinesEnabled ? 'enabled' : 'disabled'));
+      }
+      $('#scanline-toggle').addEventListener('click', toggleScanlines);
+      
+      // ===== MATRIX RAIN =====
+      const matrixCanvas = $('#matrix-canvas');
+      const matrixCtx = matrixCanvas.getContext('2d');
+      let matrixEnabled = false;
+      let matrixAnimationId = null;
+      
+      function resizeMatrix() {
+        matrixCanvas.width = window.innerWidth;
+        matrixCanvas.height = window.innerHeight;
+      }
+      resizeMatrix();
+      window.addEventListener('resize', resizeMatrix);
+      
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
+      let drops = [];
+      
+      function initMatrixDrops() {
+        const columns = Math.floor(matrixCanvas.width / 20);
+        drops = [];
+        for (let i = 0; i < columns; i++) {
+          drops[i] = Math.random() * -100;
+        }
+      }
+      
+      function drawMatrix() {
+        matrixCtx.fillStyle = 'rgba(10, 10, 10, 0.05)';
+        matrixCtx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+        matrixCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() || '#00FF00';
+        matrixCtx.font = '15px Fira Code';
+        
+        for (let i = 0; i < drops.length; i++) {
+          const char = chars[Math.floor(Math.random() * chars.length)];
+          matrixCtx.fillText(char, i * 20, drops[i] * 20);
+          if (drops[i] * 20 > matrixCanvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+          drops[i]++;
+        }
+        matrixAnimationId = requestAnimationFrame(drawMatrix);
+      }
+      
+      function toggleMatrix() {
+        if (prefersReducedMotion()) { announce('Matrix effect disabled due to reduced motion preference'); return; }
+        matrixEnabled = !matrixEnabled;
+        matrixCanvas.classList.toggle('visible', matrixEnabled);
+        if (matrixEnabled) {
+          initMatrixDrops();
+          drawMatrix();
+        } else if (matrixAnimationId) {
+          cancelAnimationFrame(matrixAnimationId);
+          matrixCtx.clearRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+        }
+        announce('Matrix rain ' + (matrixEnabled ? 'enabled' : 'disabled'));
+      }
+      $('#matrix-toggle').addEventListener('click', toggleMatrix);
+      
+      // ===== TERMINAL =====
+      const terminalOutput = $('#terminal-output');
+      const terminalInput = $('#terminal-input');
+      let commandHistory = [];
+      let historyIndex = -1;
+      
+      const files = {
+        'readme.txt': 'Welcome to Terminal OS!\nThis is a retro-inspired terminal interface.\nType "help" for available commands.',
+        'system.log': '[INFO] System initialized\n[INFO] All modules loaded\n[INFO] Ready for input',
+        'secrets.txt': 'Nice try! No secrets here... or are there?',
+        'config.ini': '[system]\nversion=1.0\ntheme=dark\n[display]\nresolution=1920x1080'
+      };
+      
+      const commands = {
+        help: () => {
+          return 'Available commands:\\n' +
+            '  help      - Show this help message\\n' +
+            '  about     - Display site information\\n' +
+            '  clear     - Clear terminal output\\n' +
+            '  date      - Show current date/time\\n' +
+            '  echo      - Echo text back\\n' +
+            '  theme     - Toggle color theme\\n' +
+            '  matrix    - Toggle matrix rain effect\\n' +
+            '  snake     - Launch Snake game\\n' +
+            '  ls        - List available files\\n' +
+            '  cat       - Display file contents\\n' +
+            '  whoami    - Show current user\\n' +
+            '  uptime    - Show system uptime';
+        },
+        about: () => 'Terminal OS v1.0\\nA retro-inspired terminal website\\nBuilt with vanilla HTML, CSS, and JavaScript',
+        clear: () => { terminalOutput.innerHTML = ''; return ''; },
+        date: () => new Date().toString(),
+        echo: (args) => args.join(' ') || '',
+        theme: () => { toggleTheme(); return 'Theme toggled'; },
+        matrix: () => { toggleMatrix(); return 'Matrix effect toggled'; },
+        snake: () => { switchSection('game'); return 'Launching Snake game...'; },
+        ls: () => 'Files:\\n  ' + Object.keys(files).join('\\n  '),
+        dir: () => commands.ls(),
+        cat: (args) => {
+          const filename = args[0];
+          if (!filename) return 'Usage: cat <filename>';
+          if (files[filename]) return files[filename];
+          return 'Error: File not found: ' + filename;
+        },
+        whoami: () => 'root',
+        uptime: () => {
+          const elapsed = Math.floor((Date.now() - startTime) / 1000);
+          const h = Math.floor(elapsed / 3600);
+          const m = Math.floor((elapsed % 3600) / 60);
+          const s = elapsed % 60;
+          return 'System uptime: ' + h + 'h ' + m + 'm ' + s + 's';
+        }
+      };
+      
+      function addTerminalLine(text, type = '') {
+        const line = document.createElement('div');
+        line.className = 'terminal-line' + (type ? ' ' + type : '');
+        line.textContent = text.replace(/\\n/g, '\n');
+        terminalOutput.appendChild(line);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      }
+      
+      function executeCommand(input) {
+        addTerminalLine('root@terminal:~$ ' + input);
+        const parts = input.trim().split(' ');
+        const cmd = parts[0].toLowerCase();
+        const args = parts.slice(1);
+        
+        if (!cmd) return;
+        if (commands[cmd]) {
+          const result = commands[cmd](args);
+          if (result) addTerminalLine(result);
+        } else {
+          addTerminalLine('Command not found: ' + cmd + '. Type "help" for available commands.', 'error');
+        }
+      }
+      
+      terminalInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const input = terminalInput.value;
+          if (input.trim()) {
+            commandHistory.push(input);
+            historyIndex = commandHistory.length;
+          }
+          executeCommand(input);
+          terminalInput.value = '';
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (historyIndex > 0) {
+            historyIndex--;
+            terminalInput.value = commandHistory[historyIndex];
+          }
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (historyIndex < commandHistory.length - 1) {
+            historyIndex++;
+            terminalInput.value = commandHistory[historyIndex];
+          } else {
+            historyIndex = commandHistory.length;
+            terminalInput.value = '';
+          }
+        }
+      });
+      
+      // Welcome message
+      addTerminalLine('Terminal OS v1.0');
+      addTerminalLine('Type "help" for a list of commands.', 'success');
+      
+      // ===== SNAKE GAME =====
+      const snakeCanvas = $('#snake-canvas');
+      const snakeCtx = snakeCanvas.getContext('2d');
+      const gridSize = 20;
+      const tileCount = snakeCanvas.width / gridSize;
+      
+      let snake = [{ x: 10, y: 10 }];
+      let food = { x: 15, y: 15 };
+      let dx = 0, dy = 0;
+      let score = 0;
+      let highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
+      let gameRunning = false;
+      let gamePaused = false;
+      let gameLoop = null;
+      
+      $('#high-score').textContent = highScore;
+      
+      function drawGame() {
+        // Clear canvas
+        snakeCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#0a0a0a';
+        snakeCtx.fillRect(0, 0, snakeCanvas.width, snakeCanvas.height);
+        
+        // Draw grid
+        snakeCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--dim-text').trim() || '#007700';
+        snakeCtx.lineWidth = 0.5;
+        for (let i = 0; i <= tileCount; i++) {
+          snakeCtx.beginPath();
+          snakeCtx.moveTo(i * gridSize, 0);
+          snakeCtx.lineTo(i * gridSize, snakeCanvas.height);
+          snakeCtx.stroke();
+          snakeCtx.beginPath();
+          snakeCtx.moveTo(0, i * gridSize);
+          snakeCtx.lineTo(snakeCanvas.width, i * gridSize);
+          snakeCtx.stroke();
+        }
+        
+        // Draw food
+        snakeCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#FF00FF';
+        snakeCtx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+        
+        // Draw snake
+        snakeCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() || '#00FF00';
+        snake.forEach((segment, i) => {
+          snakeCtx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+        });
+        
+        if (!gameRunning) {
+          snakeCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() || '#00FF00';
+          snakeCtx.font = '20px JetBrains Mono';
+          snakeCtx.textAlign = 'center';
+          snakeCtx.fillText('Press SPACE to start', snakeCanvas.width / 2, snakeCanvas.height / 2);
+        }
+        
+        if (gamePaused) {
+          snakeCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#FF00FF';
+          snakeCtx.font = '20px JetBrains Mono';
+          snakeCtx.textAlign = 'center';
+          snakeCtx.fillText('PAUSED', snakeCanvas.width / 2, snakeCanvas.height / 2);
+        }
+      }
+      
+      function updateGame() {
+        if (!gameRunning || gamePaused) return;
+        
+        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+        
+        // Wall collision
+        if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+          gameOver();
+          return;
+        }
+        
+        // Self collision
+        for (let segment of snake) {
+          if (head.x === segment.x && head.y === segment.y) {
+            gameOver();
+            return;
+          }
+        }
+        
+        snake.unshift(head);
+        
+        // Food collision
+        if (head.x === food.x && head.y === food.y) {
+          score += 10;
+          $('#score').textContent = score;
+          placeFood();
+        } else {
+          snake.pop();
+        }
+        
+        drawGame();
+      }
+      
+      function placeFood() {
+        food.x = Math.floor(Math.random() * tileCount);
+        food.y = Math.floor(Math.random() * tileCount);
+        // Make sure food doesn't spawn on snake
+        for (let segment of snake) {
+          if (food.x === segment.x && food.y === segment.y) {
+            placeFood();
+            return;
+          }
+        }
+      }
+      
+      function startGame() {
+        snake = [{ x: 10, y: 10 }];
+        dx = 1;
+        dy = 0;
+        score = 0;
+        $('#score').textContent = score;
+        placeFood();
+        gameRunning = true;
+        gamePaused = false;
+        if (gameLoop) clearInterval(gameLoop);
+        gameLoop = setInterval(updateGame, 100);
+        announce('Snake game started');
+        drawGame();
+      }
+      
+      function pauseGame() {
+        if (!gameRunning) return;
+        gamePaused = !gamePaused;
+        announce(gamePaused ? 'Game paused' : 'Game resumed');
+        drawGame();
+      }
+      
+      function gameOver() {
+        gameRunning = false;
+        if (gameLoop) clearInterval(gameLoop);
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem('snakeHighScore', highScore);
+          $('#high-score').textContent = highScore;
+        }
+        snakeCtx.fillStyle = '#ff5f56';
+        snakeCtx.font = '24px JetBrains Mono';
+        snakeCtx.textAlign = 'center';
+        snakeCtx.fillText('GAME OVER', snakeCanvas.width / 2, snakeCanvas.height / 2 - 20);
+        snakeCtx.font = '16px JetBrains Mono';
+        snakeCtx.fillText('Score: ' + score, snakeCanvas.width / 2, snakeCanvas.height / 2 + 10);
+        snakeCtx.fillText('Press SPACE to restart', snakeCanvas.width / 2, snakeCanvas.height / 2 + 40);
+        announce('Game over. Score: ' + score);
+      }
+      
+      $('#start-game').addEventListener('click', startGame);
+      $('#pause-game').addEventListener('click', pauseGame);
+      
+      document.addEventListener('keydown', (e) => {
+        // Only handle game keys when game section is active
+        const gameSection = $('#game');
+        if (!gameSection.classList.contains('active')) return;
+        
+        if (e.key === ' ' || e.code === 'Space') {
+          e.preventDefault();
+          if (!gameRunning) startGame();
+          else pauseGame();
+        }
+        
+        if (!gameRunning || gamePaused) return;
+        
+        switch (e.key) {
+          case 'ArrowUp':
+            if (dy !== 1) { dx = 0; dy = -1; }
+            e.preventDefault();
+            break;
+          case 'ArrowDown':
+            if (dy !== -1) { dx = 0; dy = 1; }
+            e.preventDefault();
+            break;
+          case 'ArrowLeft':
+            if (dx !== 1) { dx = -1; dy = 0; }
+            e.preventDefault();
+            break;
+          case 'ArrowRight':
+            if (dx !== -1) { dx = 1; dy = 0; }
+            e.preventDefault();
+            break;
+        }
+      });
+      
+      // Initial draw
+      drawGame();
+      
+      // ===== INITIALIZE =====
+      runBoot();
+    })();
+  </script>
+</body>
+</html>
